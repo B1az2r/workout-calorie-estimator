@@ -679,6 +679,172 @@ function getDietByDate(dateStr) {
 const FOOD_API_KEY = 'f7659e5d9dd0ae5706e6cf5bbee542eb0abd6b8de042cc85a7213e85859f638f';
 const FOOD_API_URL = 'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02';
 
+function _parseNumberLike(value) {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  const cleaned = String(value).replace(/[^0-9.-]/g, '');
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function _extractFoodName(item) {
+  // 식약처 정의서 기준: FOOD_NM_KR = 식품명
+  const raw = item.FOOD_NM_KR || item.DESC_KOR || item.FOOD_NM || item.name || '';
+  return String(raw)
+    .replace(/�/g, ' ')
+    .replace(/[^\w\s가-힣()\-\.,·\/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _extractFoodKcal(item) {
+  // 식약처 정의서 기준: AMT_NUM1 = 에너지(kcal)
+  // NUTR_CONT1 등은 하위 호환 fallback으로만 사용.
+  const keys = ['AMT_NUM1', 'NUTR_CONT1', 'ENERGY_KCAL', 'KCAL', 'AMT_NUM13'];
+
+  for (const k of keys) {
+    const raw = item[k];
+    let n = _parseNumberLike(raw);
+    if (n <= 0) continue;
+
+    const rawText = String(raw ?? '').toLowerCase();
+    const keyText = String(k).toLowerCase();
+    const hasKjHint = rawText.includes('kj') || rawText.includes('킬로줄') || keyText.includes('kj');
+
+    if (hasKjHint) {
+      n = n / 4.184;
+    }
+    return Math.round(n);
+  }
+
+  return 0;
+}
+
+function _extractServingText(item) {
+  // 기준량은 항목별 SERVING_SIZE를 우선 사용
+  const serving =
+    item.SERVING_SIZE ||
+    item.SERVING ||
+    item.SERV ||
+    item.SERV_SIZE ||
+    item.SERVING_WT;
+  const amount = item.AMT_NUM13 || item.AMT_NUM1;
+  if (serving) return `${serving} 기준`;
+  if (amount) return `에너지 표기 기준`;
+  return '기준량 확인 필요';
+}
+
+function _extractServingGram(item) {
+  const serving =
+    String(
+      item.SERVING_SIZE ||
+      item.SERVING ||
+      item.SERV ||
+      item.SERV_SIZE ||
+      item.SERVING_WT ||
+      ''
+    );
+
+  const m = serving.match(/([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  if (!m) return null;
+  const g = parseFloat(m[1]);
+  return Number.isFinite(g) && g > 0 ? g : null;
+}
+
+function _extractTotalGram(item) {
+  const source = String(item.Z10500 || item.DISH_ONE_SERVING || '');
+  const m = source.match(/([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  if (!m) return null;
+  const g = parseFloat(m[1]);
+  return Number.isFinite(g) && g > 0 ? g : null;
+}
+
+function _buildKcalInfo(item) {
+  const baseKcal = _extractFoodKcal(item);      // AMT_NUM1
+  const servingGram = _extractServingGram(item); // SERVING_SIZE
+  const totalGram = _extractTotalGram(item);     // Z10500
+
+  // 기준량 kcal를 100g 기준으로 환산
+  let kcalPer100 = null;
+  if (servingGram && baseKcal > 0) {
+    kcalPer100 = (baseKcal * 100) / servingGram;
+  } else if (baseKcal > 0) {
+    kcalPer100 = baseKcal;
+  }
+
+  // 총중량이 있으면 제품 총량 kcal 계산
+  let totalKcal = null;
+  if (kcalPer100 && totalGram) {
+    totalKcal = (kcalPer100 * totalGram) / 100;
+  }
+
+  const name = _extractFoodName(item);
+  const isBulkPackName = /(멀티팩|묶음|세트|번들|박스|대용량|업소용|개입|입\b)/i.test(name);
+  const hasLargeRatio = Boolean(servingGram && totalGram && (totalGram / servingGram) >= 3);
+  const isBulkPack = isBulkPackName || hasLargeRatio || (totalGram && totalGram >= 350);
+  const effectiveTotalKcal = isBulkPack ? null : totalKcal;
+
+  return {
+    baseKcal: Math.round(baseKcal),
+    servingGram,
+    totalGram,
+    kcalPer100: kcalPer100 ? Math.round(kcalPer100) : null,
+    totalKcal: totalKcal ? Math.round(totalKcal) : null,
+    effectiveTotalKcal: effectiveTotalKcal ? Math.round(effectiveTotalKcal) : null,
+    isBulkPack,
+  };
+}
+
+function _toDateKey(s) {
+  const t = String(s || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return 0;
+  return parseInt(`${m[1]}${m[2]}${m[3]}`, 10);
+}
+
+function _recordScore(item, kcalInfo) {
+  let score = 0;
+  if (kcalInfo.effectiveTotalKcal) score += 40; // 총량 계산 가능(멀티팩 제외)
+  if (kcalInfo.kcalPer100) score += 20;        // 100g 환산 가능
+  if (kcalInfo.servingGram) score += 10;       // 기준량 g 존재
+  if (item.MAKER_NM) score += 5;               // 제조사 정보
+  score += Math.min(20, _toDateKey(item.UPDATE_DATE) / 100000000); // 최신 데이터 가점(완만)
+  return score;
+}
+
+function _dedupeAndNormalizeItems(items) {
+  const bucket = new Map();
+
+  for (const item of items) {
+    const name = _extractFoodName(item);
+    if (!name) continue;
+
+    const kcalInfo = _buildKcalInfo(item);
+    if (!(kcalInfo.baseKcal > 0 || kcalInfo.totalKcal > 0)) continue;
+
+    const maker = item.MAKER_NM || '';
+    const key = `${name}__${maker}`;
+    const candidate = { item, kcalInfo, score: _recordScore(item, kcalInfo) };
+
+    const prev = bucket.get(key);
+    if (!prev || candidate.score > prev.score) {
+      bucket.set(key, candidate);
+    }
+  }
+
+  const merged = Array.from(bucket.values()).map(v => v.item);
+  // 총량 표시 가능한 항목 우선, 이후 최신 순
+  merged.sort((a, b) => {
+    const ka = _buildKcalInfo(a);
+    const kb = _buildKcalInfo(b);
+    const ta = ka.effectiveTotalKcal ? 1 : 0;
+    const tb = kb.effectiveTotalKcal ? 1 : 0;
+    if (ta !== tb) return tb - ta;
+    return _toDateKey(b.UPDATE_DATE) - _toDateKey(a.UPDATE_DATE);
+  });
+  return merged;
+}
+
 async function searchFood() {
   const query = document.getElementById('foodSearchInput').value.trim();
   if (!query) { alert('음식명을 입력해주세요.'); return; }
@@ -687,30 +853,55 @@ async function searchFood() {
   resultEl.innerHTML = '<p style="font-size:0.85em;color:#6B7280;">검색 중...</p>';
 
   try {
-    const url = `${FOOD_API_URL}?serviceKey=${FOOD_API_KEY}&FOOD_NM_KR=${encodeURIComponent(query)}&numOfRows=5&pageNo=1&type=json`;
+    const url = `${FOOD_API_URL}?serviceKey=${FOOD_API_KEY}&FOOD_NM_KR=${encodeURIComponent(query)}&numOfRows=30&pageNo=1&type=json`;
     const res = await fetch(url);
     const data = await res.json();
 
-    const items = data?.body?.items;
+    const rawItems = data?.body?.items;
+    const items = Array.isArray(rawItems)
+      ? rawItems
+      : (Array.isArray(rawItems?.item) ? rawItems.item : []);
+
     if (!items || items.length === 0) {
       resultEl.innerHTML = '<p style="font-size:0.85em;color:#9CA3AF;">검색 결과가 없습니다.</p>';
       return;
     }
 
-    let html = '<div style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-top:4px;">';
-    items.forEach(item => {
-      const name = item.FOOD_NM_KR || '';
-      const kcal = Math.round(parseFloat(item.NUTR_CONT1) || 0);
-      const per = item.SERVING_SIZE ? `${item.SERVING_SIZE}g 기준` : '100g 기준';
+    const normalizedItems = _dedupeAndNormalizeItems(items);
+    if (normalizedItems.length === 0) {
+      resultEl.innerHTML = '<p style="font-size:0.85em;color:#9CA3AF;">칼로리 값을 가진 검색 결과가 없습니다.</p>';
+      return;
+    }
+
+    window._foodSearchItems = normalizedItems;
+
+    let html = `
+      <div style="font-size:0.8em;color:#6B7280;margin:4px 2px 6px;">검색 결과 ${normalizedItems.length}건</div>
+      <div style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-top:4px;max-height:420px;overflow-y:auto;">
+    `;
+    normalizedItems.forEach((item, idx) => {
+      const name = _extractFoodName(item);
+      const kcalInfo = _buildKcalInfo(item);
+      const per = _extractServingText(item);
+      const maker = item.MAKER_NM || item.BIZRNO_NM || '';
+      const mainKcal = kcalInfo.effectiveTotalKcal || kcalInfo.baseKcal;
+      const leftBasisLabel = (kcalInfo.effectiveTotalKcal && kcalInfo.totalGram)
+        ? `총량 ${kcalInfo.totalGram}g`
+        : per;
       html += `
-        <div onclick="selectFood('${name.replace(/'/g,"\\'")}', ${kcal})"
+        <div onclick="selectFoodByIdx(${idx})"
           style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;"
           onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background='white'">
           <div>
             <span style="font-size:0.9em;font-weight:600;">${name}</span>
-            <span style="font-size:0.78em;color:#9CA3AF;margin-left:6px;">${per}</span>
+            <span style="font-size:0.78em;color:#9CA3AF;margin-left:6px;">${leftBasisLabel}</span>
+            ${maker ? `<span style="font-size:0.76em;color:#9CA3AF;margin-left:6px;">${maker}</span>` : ''}
           </div>
-          <span style="font-size:0.88em;font-weight:700;color:#0F6E56;">${kcal} kcal</span>
+          <div style="text-align:right;">
+            <div style="font-size:0.88em;font-weight:700;color:#0F6E56;">${mainKcal} kcal</div>
+            ${kcalInfo.isBulkPack ? `<div style="font-size:0.74em;color:#9CA3AF;">멀티팩/대용량은 총량 계산 제외</div>` : ''}
+            ${kcalInfo.kcalPer100 ? `<div style="font-size:0.74em;color:#9CA3AF;">${kcalInfo.kcalPer100} kcal/100g</div>` : ''}
+          </div>
         </div>`;
     });
     html += '</div>';
@@ -725,10 +916,12 @@ async function searchFood() {
 function selectFoodByIdx(idx) {
   const item = window._foodSearchItems && window._foodSearchItems[idx];
   if (!item) return;
-  const name = item.FOOD_NM_KR || '';
-  const kcal = Math.round(parseFloat(item.AMT_NUM13) || 0);
+  const name = _extractFoodName(item);
+  const kcalInfo = _buildKcalInfo(item);
+  const kcal = kcalInfo.effectiveTotalKcal || kcalInfo.baseKcal;
   document.getElementById('dietName').value = name;
   document.getElementById('dietKcal').value = kcal;
+  // 메모는 사용자가 직접 입력하도록 자동 채우지 않음
   document.getElementById('foodSearchResult').innerHTML = '';
   document.getElementById('foodSearchInput').value = '';
 }
