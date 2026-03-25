@@ -2,6 +2,15 @@
 // app.js - 화면 전환 및 전체 흐름 제어
 // =============================================
 
+// ── 로컬 날짜 헬퍼 (UTC 오차 방지) ──────────
+function getTodayLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 let currentUser = {};
 
 // ── 화면 전환 ──────────────────────────────
@@ -70,7 +79,7 @@ function goToStep2() {
   // 운동 날짜 기본값 = 오늘 (날짜가 바뀌었을 수 있으므로 항상 갱신)
   const wdEl = document.getElementById('workoutDate');
   if (wdEl) {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getTodayLocal();
     if (!wdEl.value || wdEl.value < todayStr) wdEl.value = todayStr;
   }
 
@@ -185,7 +194,7 @@ function goToResult() {
 
 function saveRecord(user, cardioResult, weightResult) {
   const wdEl = document.getElementById('workoutDate');
-  const today = (wdEl && wdEl.value) ? wdEl.value : new Date().toISOString().split('T')[0];
+  const today = (wdEl && wdEl.value) ? wdEl.value : getTodayLocal();
   const record = {
     date: today,
     user: {
@@ -306,11 +315,11 @@ function switchTab(tab) {
     // 탭 열 때마다 오늘 날짜 기준으로 달력 갱신
     currentCalYear = new Date().getFullYear();
     currentCalMonth = new Date().getMonth();
-    selectedDate = new Date().toISOString().split('T')[0]; // 오늘 날짜로 초기화
+    selectedDate = getTodayLocal(); // 오늘 날짜로 초기화
     renderCalendar(currentCalYear, currentCalMonth);
     renderChart();
     initDietDate();
-    const today2 = new Date().toISOString().split('T')[0];
+    const today2 = getTodayLocal();
     renderDietList(today2);
   }
 }
@@ -319,7 +328,7 @@ function switchTab(tab) {
 
 let currentCalYear = new Date().getFullYear();
 let currentCalMonth = new Date().getMonth();
-let selectedDate = new Date().toISOString().split('T')[0]; // 기본값 오늘
+let selectedDate = getTodayLocal(); // 기본값 오늘
 
 function changeMonth(delta) {
   currentCalMonth += delta;
@@ -335,7 +344,7 @@ function renderCalendar(year, month) {
   const title = `${year}년 ${month + 1}월`;
   document.getElementById('calendarTitle').textContent = title;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
   const firstDay = new Date(year, month, 1).getDay();
   const lastDate = new Date(year, month + 1, 0).getDate();
 
@@ -600,7 +609,7 @@ function renderChart() {
 // ── 식단 기록 ─────────────────────────────
 
 function initDietDate() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
   const el = document.getElementById('dietDate');
   if (el) el.value = today;
   _updateDietDisplay(today);
@@ -1025,12 +1034,31 @@ function selectFoodByIdx(idx) {
   document.getElementById('foodSearchInput').value = '';
 }
 
-// 엔터키로 검색
+// 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
+  // 엔터키로 검색
   const input = document.getElementById('foodSearchInput');
   if (input) {
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') searchFood();
+    });
+  }
+
+  // 날짜 항상 오늘로 초기화
+  const today = getTodayLocal();
+  selectedDate = today;
+  currentCalYear = new Date().getFullYear();
+  currentCalMonth = new Date().getMonth();
+
+  // dietDate input 초기화
+  const dietDateEl = document.getElementById('dietDate');
+  if (dietDateEl) dietDateEl.value = today;
+  _updateDietDisplay(today);
+
+  // dietDate 변경 이벤트
+  if (dietDateEl) {
+    dietDateEl.addEventListener('change', () => {
+      renderDietList(dietDateEl.value);
     });
   }
 });
