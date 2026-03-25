@@ -87,8 +87,8 @@ workout-calorie-estimator/
 
 별도 설치 없이 `index.html`을 브라우저에서 열면 바로 실행됩니다.
 
-배포 링크 (공개 전환 후 활성화 예정):  
-**https://B1az2r.github.io/workout-calorie-estimator**
+배포 링크:  
+**http://bit.ly/4bU0gL8**
 
 ---
 
