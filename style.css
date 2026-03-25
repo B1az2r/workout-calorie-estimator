@@ -433,7 +433,20 @@ footer {
 .cal-day:hover { background: #EFF6FF; border-color: #BFDBFE; }
 .cal-day.has-record { background: #DCFCE7; border-color: #86EFAC; }
 .cal-day.has-record:hover { background: #BBF7D0; }
-.cal-day.today { border-color: #1E3A8A; font-weight: 700; }
+.cal-day.today {
+  border-color: #1E3A8A;
+  border-width: 2px;
+  font-weight: 700;
+  background: #EFF6FF;
+}
+.cal-day.today.has-record {
+  background: #DCFCE7;
+  border-color: #1E3A8A;
+  border-width: 2px;
+}
+/* 윈도우 크롬 date input 자동 괄호 숨기기 */
+input[type="date"]::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.6; }
 .cal-day.selected { background: #1E3A8A; color: white; border-color: #1E3A8A; }
 .cal-day.selected.has-record { background: #1E3A8A; }
 .cal-day.empty { cursor: default; }

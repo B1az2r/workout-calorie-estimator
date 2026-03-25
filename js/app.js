@@ -306,6 +306,7 @@ function switchTab(tab) {
     // 탭 열 때마다 오늘 날짜 기준으로 달력 갱신
     currentCalYear = new Date().getFullYear();
     currentCalMonth = new Date().getMonth();
+    selectedDate = new Date().toISOString().split('T')[0]; // 오늘 날짜로 초기화
     renderCalendar(currentCalYear, currentCalMonth);
     renderChart();
     initDietDate();
@@ -318,7 +319,7 @@ function switchTab(tab) {
 
 let currentCalYear = new Date().getFullYear();
 let currentCalMonth = new Date().getMonth();
-let selectedDate = null;
+let selectedDate = new Date().toISOString().split('T')[0]; // 기본값 오늘
 
 function changeMonth(delta) {
   currentCalMonth += delta;
@@ -602,6 +603,28 @@ function initDietDate() {
   const today = new Date().toISOString().split('T')[0];
   const el = document.getElementById('dietDate');
   if (el) el.value = today;
+  _updateDietDisplay(today);
+  renderDietList(today);
+}
+
+function updateDietDayLabel() {
+  const el = document.getElementById('dietDate');
+  if (!el || !el.value) return;
+  _updateDietDisplay(el.value);
+  renderDietList(el.value);
+}
+
+function _updateDietDisplay(dateStr) {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const d = new Date(dateStr + 'T00:00:00');
+  const dayStr = days[d.getDay()];
+  const label = document.getElementById('dietDayLabel');
+  const display = document.getElementById('dietDateDisplay');
+  if (label) label.textContent = '(' + dayStr + ')';
+  if (display) {
+    const [y, m, dd] = dateStr.split('-');
+    display.textContent = `${y}년 ${parseInt(m)}월 ${parseInt(dd)}일`;
+  }
 }
 
 function addDietRecord() {
