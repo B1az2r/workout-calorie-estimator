@@ -283,15 +283,14 @@ function renderResult(userInfo, cardioResult, weightResult) {
           <div style="position:absolute;left:${bmiPct}%;top:0;bottom:0;width:3px;background:#1E293B;transform:translateX(-50%);border-radius:2px;"></div>
           <div style="position:absolute;left:${bmiPct}%;top:-22px;transform:translateX(-50%);font-size:0.78em;font-weight:700;color:#1E293B;white-space:nowrap;">${bmiVal.toFixed(1)}</div>
         </div>
-        <!-- 구간 레이블 -->
+        <!-- 구간별 라벨: 각 섹터 바로 아래 -->
         <div style="display:flex;margin-top:6px;">
           ${bmiSegments.map((seg, i) => `
-            <div style="flex:${segWidths[i]};text-align:center;font-size:0.7em;color:#6B7280;">${seg.label}</div>
+            <div style="flex:${segWidths[i]};display:flex;flex-direction:column;align-items:center;gap:2px;">
+              <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${seg.color};opacity:0.9;"></span>
+              <span style="font-size:0.62em;color:#6B7280;white-space:nowrap;">${seg.label}</span>
+            </div>
           `).join('')}
-        </div>
-        <!-- 수치 기준 -->
-        <div style="display:flex;justify-content:space-between;font-size:0.68em;color:#9CA3AF;margin-top:2px;">
-          <span>10</span><span>18.5</span><span>23</span><span>25</span><span>30</span><span>40</span>
         </div>
       </div>
 

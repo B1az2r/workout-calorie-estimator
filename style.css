@@ -379,6 +379,7 @@ footer {
   .form-grid { grid-template-columns: 1fr; }
   .body-grid { grid-template-columns: 1fr; }
   .set-row { grid-template-columns: auto 1fr 1fr; }
+  .bmi-labels { display: none !important; }
 }
 
 /* ── 탭 네비게이션 ── */
