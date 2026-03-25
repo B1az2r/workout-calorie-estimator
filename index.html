@@ -208,6 +208,20 @@
             <input type="text" id="dietMemo" placeholder="예: 점심" style="padding:10px 12px;border:1.5px solid #D1D5DB;border-radius:8px;font-size:0.95em;width:100%;">
           </div>
         </div>
+        <!-- 음식 검색 -->
+        <div style="margin-bottom:16px;">
+          <label style="font-size:0.9em;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+            음식 검색 <span class="optional">선택</span>
+          </label>
+          <div style="display:flex;gap:8px;">
+            <div class="input-wrap" style="flex:1;">
+              <input type="text" id="foodSearchInput" placeholder="예: 라면, 닭가슴살" style="border:none;outline:none;padding:10px 12px;font-size:0.95em;width:100%;">
+            </div>
+            <button class="btn-add" onclick="searchFood()" style="white-space:nowrap;">검색</button>
+          </div>
+          <div id="foodSearchResult" style="margin-top:8px;"></div>
+        </div>
+
         <div class="btn-wrap">
           <button class="btn-primary" onclick="addDietRecord()">기록 추가</button>
         </div>
