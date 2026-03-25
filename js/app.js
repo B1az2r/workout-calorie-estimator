@@ -673,3 +673,68 @@ function loadDietRecords() {
 function getDietByDate(dateStr) {
   return loadDietRecords().filter(r => r.date === dateStr);
 }
+
+// ── 식품영양성분 API 검색 ──────────────────
+
+const FOOD_API_KEY = 'f7659e5d9dd0ae5706e6cf5bbee542eb0abd6b8de042cc85a7213e85859f638f';
+const FOOD_API_URL = 'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02';
+
+async function searchFood() {
+  const query = document.getElementById('foodSearchInput').value.trim();
+  if (!query) { alert('음식명을 입력해주세요.'); return; }
+
+  const resultEl = document.getElementById('foodSearchResult');
+  resultEl.innerHTML = '<p style="font-size:0.85em;color:#6B7280;">검색 중...</p>';
+
+  try {
+    const url = `${FOOD_API_URL}?serviceKey=${FOOD_API_KEY}&FOOD_NM_KR=${encodeURIComponent(query)}&numOfRows=5&pageNo=1&type=json`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const items = data?.body?.items;
+    if (!items || items.length === 0) {
+      resultEl.innerHTML = '<p style="font-size:0.85em;color:#9CA3AF;">검색 결과가 없습니다.</p>';
+      return;
+    }
+
+    let html = '<div style="border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin-top:4px;">';
+    items.forEach(item => {
+      const name = item.FOOD_NM_KR || '';
+      const kcal = Math.round(parseFloat(item.NUTR_CONT1) || 0);
+      const per = item.SERVING_SIZE ? `${item.SERVING_SIZE}g 기준` : '100g 기준';
+      html += `
+        <div onclick="selectFood('${name.replace(/'/g,"\\'")}', ${kcal})"
+          style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;"
+          onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background='white'">
+          <div>
+            <span style="font-size:0.9em;font-weight:600;">${name}</span>
+            <span style="font-size:0.78em;color:#9CA3AF;margin-left:6px;">${per}</span>
+          </div>
+          <span style="font-size:0.88em;font-weight:700;color:#0F6E56;">${kcal} kcal</span>
+        </div>`;
+    });
+    html += '</div>';
+    resultEl.innerHTML = html;
+
+  } catch (err) {
+    resultEl.innerHTML = '<p style="font-size:0.85em;color:#EF4444;">검색 중 오류가 발생했습니다. 직접 입력해주세요.</p>';
+    console.error(err);
+  }
+}
+
+function selectFood(name, kcal) {
+  document.getElementById('dietName').value = name;
+  document.getElementById('dietKcal').value = kcal;
+  document.getElementById('foodSearchResult').innerHTML = '';
+  document.getElementById('foodSearchInput').value = '';
+}
+
+// 엔터키로 검색
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('foodSearchInput');
+  if (input) {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') searchFood();
+    });
+  }
+});
