@@ -76,11 +76,12 @@ function goToStep2() {
     leanMass: fatMass ? weight - fatMass : null
   };
 
-  // 운동 날짜 기본값 = 오늘 (날짜가 바뀌었을 수 있으므로 항상 갱신)
+  // 운동 날짜 기본값 = 오늘
   const wdEl = document.getElementById('workoutDate');
   if (wdEl) {
     const todayStr = getTodayLocal();
     if (!wdEl.value || wdEl.value < todayStr) wdEl.value = todayStr;
+    updateWorkoutDateLabel();
   }
 
   showScreen('screen2');
@@ -340,6 +341,7 @@ function changeMonth(delta) {
 function renderCalendar(year, month) {
   const records = loadAllRecords();
   const recordDates = new Set(records.map(r => r.date));
+  const dietDates = new Set(loadDietRecords().map(r => r.date));
 
   const title = `${year}년 ${month + 1}월`;
   document.getElementById('calendarTitle').textContent = title;
@@ -368,14 +370,29 @@ function renderCalendar(year, month) {
     const isToday = dateStr === today;
     const isSelected = dateStr === selectedDate;
 
+    const hasDiet = dietDates.has(dateStr);
     let cls = 'cal-day';
-    if (hasRecord) cls += ' has-record';
     if (isToday) cls += ' today';
     if (isSelected) cls += ' selected';
 
-    html += `<div class="${cls}" onclick="selectDay('${dateStr}')">
+    // 배경색 + 점 색상 구분
+    let bgStyle = '';
+    let dots = '';
+
+    if (hasRecord && hasDiet) {
+      bgStyle = 'background:linear-gradient(135deg, #DCFCE7 50%, #EDE9FE 50%);';
+      dots = '<span class="day-dot" style="background:#10B981;"></span><span class="day-dot" style="background:#8B5CF6;"></span>';
+    } else if (hasRecord) {
+      bgStyle = 'background:#DCFCE7;';
+      dots = '<span class="day-dot" style="background:#10B981;"></span>';
+    } else if (hasDiet) {
+      bgStyle = 'background:#EDE9FE;';
+      dots = '<span class="day-dot" style="background:#8B5CF6;"></span>';
+    }
+
+    html += `<div class="${cls}" onclick="selectDay('${dateStr}')" style="${bgStyle}">
       <span class="day-num">${d}</span>
-      ${hasRecord ? '<span class="day-dot"></span>' : ''}
+      <div style="display:flex;gap:2px;justify-content:center;">${dots}</div>
     </div>`;
   }
 
@@ -550,8 +567,8 @@ function renderChart() {
         {
           label: '섭취 칼로리',
           data: intakeData,
-          backgroundColor: 'rgba(180,83,9,0.45)',
-          borderColor: 'rgba(180,83,9,0.9)',
+          backgroundColor: 'rgba(139,92,246,0.45)',
+          borderColor: 'rgba(139,92,246,0.9)',
           borderWidth: 1,
           borderRadius: 4,
           order: 2,
@@ -623,17 +640,28 @@ function updateDietDayLabel() {
   renderDietList(el.value);
 }
 
-function _updateDietDisplay(dateStr) {
+function updateWorkoutDateLabel() {
+  const el = document.getElementById('workoutDate');
+  const display = document.getElementById('workoutDateDisplay');
+  const label = document.getElementById('workoutDayLabel');
+  if (!el || !el.value) return;
+  _updateDateDisplay(el.value, display, label);
+}
+
+function _updateDateDisplay(dateStr, displayEl, labelEl) {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   const d = new Date(dateStr + 'T00:00:00');
-  const dayStr = days[d.getDay()];
-  const label = document.getElementById('dietDayLabel');
-  const display = document.getElementById('dietDateDisplay');
-  if (label) label.textContent = '(' + dayStr + ')';
-  if (display) {
+  if (labelEl) labelEl.textContent = '(' + days[d.getDay()] + ')';
+  if (displayEl) {
     const [y, m, dd] = dateStr.split('-');
-    display.textContent = `${y}년 ${parseInt(m)}월 ${parseInt(dd)}일`;
+    displayEl.textContent = `${y}년 ${parseInt(m)}월 ${parseInt(dd)}일`;
   }
+}
+
+function _updateDietDisplay(dateStr) {
+  const display = document.getElementById('dietDateDisplay');
+  const label = document.getElementById('dietDayLabel');
+  _updateDateDisplay(dateStr, display, label);
 }
 
 function addDietRecord() {
@@ -1095,6 +1123,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const dietDateEl = document.getElementById('dietDate');
   if (dietDateEl) dietDateEl.value = today;
   _updateDietDisplay(today);
+
+  // workoutDate input 초기화
+  const workoutDateEl = document.getElementById('workoutDate');
+  if (workoutDateEl && !workoutDateEl.value) workoutDateEl.value = today;
+  updateWorkoutDateLabel();
 
   // dietDate 변경 이벤트
   if (dietDateEl) {
