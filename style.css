@@ -431,8 +431,8 @@ footer {
   padding: 4px;
 }
 .cal-day:hover { background: #EFF6FF; border-color: #BFDBFE; }
-.cal-day.has-record { background: #DCFCE7; border-color: #86EFAC; }
-.cal-day.has-record:hover { background: #BBF7D0; }
+.cal-day.has-record { border-color: #86EFAC; }
+.cal-day.has-record:hover { filter: brightness(0.95); }
 .cal-day.today {
   border-color: #1E3A8A;
   border-width: 2px;
@@ -447,8 +447,8 @@ footer {
 /* 윈도우 크롬 date input 자동 괄호 숨기기 */
 input[type="date"]::-webkit-datetime-edit-fields-wrapper { padding: 0; }
 input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.6; }
-.cal-day.selected { background: #1E3A8A; color: white; border-color: #1E3A8A; }
-.cal-day.selected.has-record { background: #1E3A8A; }
+.cal-day.selected { color: #111827; border:2.5px solid #1E3A8A; }
+.cal-day.selected .day-num { font-weight: 800; color: #1E3A8A; }
 .cal-day.empty { cursor: default; }
 .cal-day .day-num { font-size: 0.95em; line-height: 1; }
 .cal-day .day-dot {
@@ -457,7 +457,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.6; }
   background: #10B981;
   margin-top: 3px;
 }
-.cal-day.selected .day-dot { background: white; }
+/* .cal-day.selected .day-dot - 색상 유지 */
 .cal-day.other-month { opacity: 0.3; }
 
 /* ── 기록 상세 ── */
